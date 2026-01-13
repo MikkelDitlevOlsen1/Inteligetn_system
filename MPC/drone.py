@@ -10,4 +10,8 @@ class Transport_drone:
         self.battery_level = 100.0  # current battery level
         self.ucupied = False  # whether the drone is currently occupied with an action
         self.is_moving = False  # whether the drone is currently moving
+        
+        self.states = [self.pos3d, self.load, self.battery_level]
 
+    def update_states(self):
+        self.states = [self.pos3d, self.load, self.battery_level]

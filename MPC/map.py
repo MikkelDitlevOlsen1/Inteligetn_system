@@ -6,7 +6,6 @@ from cleaner import Robot_cleaner
 from basestation import Base_station
 from window import Window
 from matplotlib.animation import FuncAnimation
-
 class Map:
     def __init__(self, base_station: Base_station, drone: Transport_drone, cleaners: list[Robot_cleaner], windows: list[Window]):
         self.base_station = base_station
@@ -14,7 +13,47 @@ class Map:
         self.cleaners = cleaners
         self.windows = windows
         self.time = 0.0  # simulation time
+        self.cleaning_processes : list = [None for _ in self.cleaners]  # track cleaning processes
+        self.cleaner_suction_consumption=0.2 # battery consumption rate when cleaner is cleaning (units per time)
+        self.states = (
+            [self.time] +
+            self.drone.states + 
+            self.base_station.states + 
+            [state for cleaner in self.cleaners for state in cleaner.states] +
+            [state for window in self.windows for state in window.states]
+        )
 
+    def update_states(self):
+        # Update individual cleaner states first
+        for cleaner in self.cleaners:
+            if hasattr(cleaner, 'update_states'):
+                cleaner.update_states()
+        self.drone.update_states()
+
+        self.states = (
+            [self.time] +
+            self.drone.states + 
+            self.base_station.states + 
+            [state for cleaner in self.cleaners for state in cleaner.states] +
+            [state for window in self.windows for state in window.states]
+        )
+
+    def update_cleaning_processes(self):
+        for i, process in enumerate(self.cleaning_processes):
+            if process is not None:
+                if process.end_time <= self.time:
+                    process.when_done(self)
+                    self.cleaning_processes[i] = None
+                else:
+                    process.when_runed_time(self, self.time)
+        for i, cleaner in enumerate(self.cleaners):
+            if cleaner.on_window is not None:
+                cleaner.battery_level -= self.cleaner_suction_consumption * (self.time - cleaner.last_update_time)
+                if cleaner.battery_level < 0.0:
+                    cleaner.battery_level = 0.0
+                cleaner.last_update_time = self.time    
+
+    
     def visualize(self):
         # 3D scatter of all map objects: base station, drone, cleaners, windows
         fig = plt.figure(figsize=(8, 6))
@@ -94,7 +133,7 @@ def random_map_generater(num_cleaners, num_windows):
 
     cleaners = []
     for i in range(num_cleaners):
-        cleaner = Robot_cleaner(name=f"{i+1}", battery_capacity=100, pos3d=(0, 0, 0))
+        cleaner = Robot_cleaner(name=f"{i+1}", battery_capacity=200, pos3d=(0, 0, 0))
         cleaners.append(cleaner)
 
     windows = []
@@ -102,8 +141,8 @@ def random_map_generater(num_cleaners, num_windows):
         pos3d = (np.random.uniform(-50, 50), np.random.uniform(-50, 50), np.random.uniform(10, 100))
         width = np.random.uniform(1, 5)
         height = np.random.uniform(1, 5)
-        state = np.random.choice(['clean', 'dirty'])
-        cleaning_time = np.random.uniform(5, 20)  # time required to clean the window
+        state = np.random.choice(['dirty'])
+        cleaning_time = np.random.uniform(5, 10)  # time required to clean the window
         window = Window(pos3d=pos3d, width=width, height=height, state=state, cleaing_time=cleaning_time,name=f"{i+1}")
         windows.append(window)
 

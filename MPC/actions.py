@@ -22,6 +22,14 @@ class actions:
 
         return False
 
+    def full_action(self , delta_t):
+        self.when_start()
+        repatisions=int(self.duration/delta_t)
+        for _ in range(repatisions):
+            self.aplay_action_power_in_deltat(delta_t)
+            self.aplay_action_movment(delta_t)
+        self.when_done()
+        return repatisions
 
     
     def set_start_time(self, start_time):
@@ -397,18 +405,7 @@ class charge_drone(actions):
             return False
         return np.array_equal(self.drone.pos3d, self.base_station.pos3d)
     
-class stop_flying(actions):
-    def __init__(self, drone: Transport_drone):
-        super().__init__('stop_flying', 1, 1, drone)
-        self.drone = drone  # ID of the target drone
-        
-    def when_start(self):
-        self.drone.is_moving = False
-        pass
 
-    def is_alowed(self):
-        return self.drone.is_moving 
-    
 class null_action(actions):
     def __init__(self, target: Transport_drone| Robot_cleaner):
         super().__init__('null_action', 0, 0, target)

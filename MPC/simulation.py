@@ -171,6 +171,31 @@ class simulation:
                 chosen_actions.append(null_action(self.map.cleaners[i]))
         return chosen_actions
       
+    def smart_cleaner_action(self) -> list[actions]:
+        chosen_actions = []
+        for i, allowed_actions in enumerate(self.alowed_clener_actions):
+            for action in allowed_actions:
+                if isinstance(action, clean_window):
+                    chosen_actions.append(action) #prioritize cleaning
+                    break
+                elif isinstance(action, charge_cleaner):
+                    chosen_actions.append(action) #second prioritize charging
+                    break
+            else:
+                chosen_actions.append(allowed_actions[0])  # default to first action if no clean or charge found
+        return chosen_actions
+
+    def smart_alowed_action(self) -> list[actions]:
+        self.alowed_drone_actions = []
+        for action in self.all_drone_actions:
+            if isinstance(action, fly_to_window):
+                totel_comsumtioon=action.power_consumption + self.constant_drone_power_consumption 
+
+
+
+    
+
+
     def visualize(self):
         self.map.visualize()
 

@@ -8,4 +8,6 @@ class Window:
         self.state = state  # 'clean' or 'dirty'
         self.cleaning_time = cleaing_time  # time required to clean the window
         self.this_id = id(self)
-
+        self.states = [self.pos3d, self.cleaning_time, self.state]
+        self.cleaner = None  # Robot_cleaner assigned to clean this window
+    

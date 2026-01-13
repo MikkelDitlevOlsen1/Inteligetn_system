@@ -9,6 +9,8 @@ class Robot_cleaner:
         self.is_charging = False
         self.on_window = None
         self.this_id=id(self)
-        self.pos3d = np.array(pos3d)    
-
-    
+        self.pos3d = np.array(pos3d)
+        self.states = [self.pos3d, self.battery_level, self.is_cleaning, self.is_charging, self.on_window]
+        self.last_update_time = 0.0
+    def update_states(self):
+        self.states = [self.pos3d, self.battery_level, self.is_cleaning, self.is_charging, self.on_window]
