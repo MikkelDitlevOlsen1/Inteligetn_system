@@ -118,10 +118,7 @@ class PickupCleaner(MapAction):
         if drone.load is not None:
             return False
         
-        # Drone must not be occupied
-        if drone.ucupied:
-            return False
-                # Cleaner must not be cleaning
+
         if cleaner.is_cleaning:
             return False
         
@@ -455,14 +452,16 @@ class NullAction(MapAction):
     
     def __init__(self):
         super().__init__('null_action')
-    
+
     def is_allowed(self, map_state: Map) -> bool:
         """Always allowed."""
         return True
     
     def run(self, map_state: Map) -> Map:
         """Return map unchanged."""
-        return copy.deepcopy(map_state)
+        new_map = copy.deepcopy(map_state)
+        new_map.time += 10.0  # Advance time by 10 seconds
+        return new_map
 
 
 
@@ -470,13 +469,14 @@ class NullAction(MapAction):
 
 class DropCleanerOffAtWindow(MapAction):
     """Drone flies to a window and drops off a cleaner at that window in one action."""
-    def __init__(self, window_index: int, speed=5.0, fly_power=200.0, drop_power=50.0, drop_duration=10.0):
+    def __init__(self, window_index: int, speed=5.0, fly_power=200.0, drop_power=50.0, drop_duration=10.0, cleaning_power=10.0):
         super().__init__(f'drop_cleaner_off_at_window_{window_index}')
         self.window_index = window_index
         self.speed = speed
         self.fly_power = fly_power
         self.drop_power = drop_power
         self.drop_duration = drop_duration
+        self.cleaning_power = cleaning_power
 
     def is_allowed(self, map_state: Map) -> bool:
         # Check if both flying to window and dropping off cleaner are allowed
@@ -493,6 +493,35 @@ class DropCleanerOffAtWindow(MapAction):
         # Window must not be clean
         if window.state == 'clean':
             return False
+        
+        #if no othere cleaner is cleaning that window
+        for cleaner in map_state.cleaners:
+            if cleaner.on_window is not None and cleaner.on_window.this_id == window.this_id:
+                return False
+
+        #need to have enough battery to clean window
+        # Calculate distance to window
+        distance = np.linalg.norm(drone.pos3d - window.pos3d)
+        duration = distance / self.speed
+        energy_cost_fly = duration * self.fly_power
+        energy_cost_drop = self.drop_duration * self.drop_power
+        total_energy_cost = energy_cost_fly + energy_cost_drop
+        energy_used_percent = total_energy_cost / drone.battery_capacity * 100.0
+        
+        if drone.battery_level < energy_used_percent:
+            return False
+
+        if cleaner.battery_level <= 80.0:
+            return False
+        
+        #calculate clener battery usage
+        cleaner = drone.load
+        cleaning_time = window.cleaning_time
+        energy_cost_cleaning = cleaning_time * self.cleaning_power
+        energy_used_percent_cleaner = energy_cost_cleaning / cleaner.battery_capacity * 100.0
+        if cleaner.battery_level < energy_used_percent_cleaner:
+            return False
+        
         return True
 
     def run(self, map_state: Map) -> Map:
@@ -526,6 +555,7 @@ class DropCleanerOffAtWindow(MapAction):
             cleaner = drone.load
             cleaner.pos3d = window.pos3d.copy()
             cleaner.on_window = window
+            cleaner.last_update_time = new_map.time  # ADD THIS LINE
             drone.load = None
             # Battery
             energy_used_percent = energy_cost / drone.battery_capacity * 100.0
@@ -533,6 +563,7 @@ class DropCleanerOffAtWindow(MapAction):
             if drone.battery_level < 0:
                 drone.battery_level = 0.0
             # Time
+            #cleaner.is_cleaning = True
             new_map.time += self.drop_duration
 
         return new_map
@@ -563,7 +594,10 @@ class PickupCleanerByFlying(MapAction):
         # Cleaner must not be cleaning
         if cleaner.is_cleaning:
             return False
-                
+        
+        # cleaner must not be charging
+        if cleaner.is_charging:
+            return False
         return True
 
     def run(self, map_state: Map) -> Map:
@@ -593,6 +627,7 @@ class PickupCleanerByFlying(MapAction):
             drone.load = cleaner
             cleaner.pos3d = drone.pos3d.copy()
             cleaner.on_window = None
+            cleaner.last_update_time = new_map.time  # ADD THIS LINE
             # Battery
             energy_used_percent = energy_cost / drone.battery_capacity * 100.0
             drone.battery_level -= energy_used_percent
@@ -716,6 +751,8 @@ class DropOffCleanerAtBaseByFlying(MapAction):
             cleaner = drone.load
             cleaner.pos3d = base.pos3d.copy()
             drone.load = None
+            cleaner.last_update_time = new_map.time  # ADD THIS LINE
+
             # Battery
             energy_used_percent = energy_cost / drone.battery_capacity * 100.0
             drone.battery_level -= energy_used_percent
@@ -724,3 +761,49 @@ class DropOffCleanerAtBaseByFlying(MapAction):
             new_map.time += self.drop_duration
 
         return new_map
+    
+class FlyToClener(MapAction):
+    """Drone flies to a cleaner and thats it"""
+    def __init__(self, cleaner_index: int, speed=5.0, fly_power=200.0):
+        super().__init__(f'fly_to_cleaner_{cleaner_index}')
+        self.cleaner_index = cleaner_index
+        self.speed = speed
+        self.fly_power = fly_power
+
+    def is_allowed(self, map_state: Map) -> bool:
+        if self.cleaner_index >= len(map_state.cleaners):
+            return False
+        
+
+        cleaner = map_state.cleaners[self.cleaner_index]
+        drone = map_state.drone  
+        # Already at the cleaner
+        if np.array_equal(drone.pos3d, cleaner.pos3d):
+            return False
+        # if the clener is not cleaning
+        if not(cleaner.is_cleaning):
+            return False
+        
+        return True
+
+    def run(self, map_state: Map) -> Map:
+        new_map = copy.deepcopy(map_state)
+        cleaner = new_map.cleaners[self.cleaner_index]
+        drone = new_map.drone
+
+        # Fly to cleaner if not already there
+        if not np.array_equal(drone.pos3d, cleaner.pos3d):
+            distance = np.linalg.norm(drone.pos3d - cleaner.pos3d)
+            duration = distance / self.speed
+            energy_cost = duration * self.fly_power
+            drone.pos3d = cleaner.pos3d.copy()
+            drone.is_moving = False
+            # Battery
+            energy_used_percent = energy_cost / drone.battery_capacity * 100.0
+            drone.battery_level -= energy_used_percent
+            if drone.battery_level < 0:
+                drone.battery_level = 0.0
+            new_map.time += duration
+
+        return new_map
+

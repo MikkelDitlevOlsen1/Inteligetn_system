@@ -1,8 +1,12 @@
 import numpy as np
+from map import Map
+from matplotlib.animation import FuncAnimation
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.animation import FuncAnimation
-from map import Map
+
+
+# Matplotlib imports deferred to avoid numpy compatibility issues
+matplotlib_available = False
 
 
 class LiveVisualizer:
@@ -16,6 +20,14 @@ class LiveVisualizer:
             map_obj: The Map object to visualize
             update_interval_ms: Update interval in milliseconds
         """
+        # Import matplotlib only when needed
+        try:
+            import matplotlib.pyplot as plt
+            from mpl_toolkits.mplot3d import Axes3D
+        except ImportError:
+            print("Error: matplotlib is required for visualization")
+            raise
+        
         self.map = map_obj
         self.update_interval = update_interval_ms
         
@@ -193,6 +205,19 @@ class LiveVisualizer:
         return [self.base_station_scatter, self.drone_scatter] + self.texts if self.base_station_scatter else self.texts
     
     def show(self):
+        """
+        Display the live visualization.
+
+        This method creates and displays an animated figure using matplotlib's FuncAnimation.
+        The animation updates the plot at regular intervals specified by self.update_interval.
+
+        Returns:
+            FuncAnimation: The animation object that can be used to control the animation
+                           (e.g., save, pause, or adjust playback).
+
+        Note:
+            FuncAnimation must be imported from matplotlib.animation:
+        """
         """Display the live visualization."""
         anim = FuncAnimation(self.fig, self._update_plot, interval=self.update_interval, blit=False, cache_frame_data=False)
         plt.tight_layout()

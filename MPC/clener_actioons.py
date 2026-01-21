@@ -14,23 +14,31 @@ class CleanWindowAction(MapAction):
         self.larsted_update_time = 0.0
         self.end_time = 0.0 # to be set when started
     
-    def when_started(self , update_Map : Map):
-        if self.cleaner_index >= len(update_Map.cleaners):   
-            return False
-        update_Map.cleaners[self.cleaner_index].is_cleaning = True     
+    #def when_started(self , update_Map : Map):
+        #if self.cleaner_index >= len(update_Map.cleaners):   
+            #return False
+        #update_Map.cleaners[self.cleaner_index].is_cleaning = True     
         #print(f"Cleaner {self.cleaner_index} started cleaning.")   
-        self.end_time=update_Map.cleaners[self.cleaner_index].on_window.cleaning_time + update_Map.time
-        self.is_cleaning = True
-
+        #self.end_time=update_Map.cleaners[self.cleaner_index].on_window.cleaning_time + update_Map.time
+        #self.is_cleaning = True
+    
     def when_done(self , update_Map : Map):
         if self.cleaner_index >= len(update_Map.cleaners):   
             return False
-        #print("here")
-        #print(f"Cleaner {self.cleaner_index} finished cleaning.")
         update_Map.cleaners[self.cleaner_index].is_cleaning = False
         update_Map.cleaners[self.cleaner_index].on_window.state = 'clean'
         self.when_runed_time(update_Map , self.end_time)
         self.is_cleaning = False
+    
+    def when_started(self , update_Map : Map):
+        if self.cleaner_index >= len(update_Map.cleaners):   
+            return False
+        self.larsted_update_time = update_Map.time
+        # UPDATE: Set last_update_time before starting to clean
+        update_Map.cleaners[self.cleaner_index].last_update_time = update_Map.time
+        update_Map.cleaners[self.cleaner_index].is_cleaning = True     
+        self.end_time=update_Map.cleaners[self.cleaner_index].on_window.cleaning_time + update_Map.time
+        self.is_cleaning = True
 
     def when_runed_time(self , update_Map : Map , time):
         run_time = time - self.larsted_update_time
@@ -43,7 +51,7 @@ class CleanWindowAction(MapAction):
         cleaner.battery_level = max(0.0, cleaner.battery_level - battery_drain_pct)
 
 
-    def is_allowed(self, map_state: Map) -> bool:
+    def is_allowed(self, map_state: Map ) -> bool:
         if self.cleaner_index >= len(map_state.cleaners):
             return False
         cleaner = map_state.cleaners[self.cleaner_index]
@@ -55,10 +63,6 @@ class CleanWindowAction(MapAction):
         if not np.array_equal(cleaner.pos3d, window.pos3d):
             return False
 
-        # Require sufficient battery to start cleaning
-        if cleaner.battery_level <= 40.0:
-            return False
-        
         if cleaner.is_charging:
             return False
         
@@ -84,6 +88,7 @@ class ChargeCleanerAction(MapAction):
     def when_started(self, update_Map: Map):
         if self.cleaner_index >= len(update_Map.cleaners):
             return False
+        self.larsted_update_time = update_Map.time
         cleaner = update_Map.cleaners[self.cleaner_index]
         current_energy = cleaner.battery_level / 100.0 * cleaner.battery_capacity
         energy_needed = cleaner.battery_capacity - current_energy
@@ -92,12 +97,22 @@ class ChargeCleanerAction(MapAction):
             duration = self.min_duration
         update_Map.cleaners[self.cleaner_index].is_charging = True
         self.end_time = duration + update_Map.time
+    
+    #def when_done(self, update_Map: Map):
+        #if self.cleaner_index >= len(update_Map.cleaners):
+            #return False
+        #update_Map.cleaners[self.cleaner_index].is_charging = False
+        #update_Map.cleaners[self.cleaner_index].battery_level = 100.0
+        #self.when_runed_time(update_Map, self.end_time)
 
+  
     def when_done(self, update_Map: Map):
         if self.cleaner_index >= len(update_Map.cleaners):
             return False
         update_Map.cleaners[self.cleaner_index].is_charging = False
         update_Map.cleaners[self.cleaner_index].battery_level = 100.0
+        # UPDATE: Set last_update_time to current time after charging
+        update_Map.cleaners[self.cleaner_index].last_update_time = update_Map.time
         self.when_runed_time(update_Map, self.end_time)
 
     def when_runed_time(self, update_Map: Map, time):

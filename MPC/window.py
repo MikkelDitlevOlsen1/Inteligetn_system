@@ -11,3 +11,5 @@ class Window:
         self.states = [self.pos3d, self.cleaning_time, self.state]
         self.cleaner = None  # Robot_cleaner assigned to clean this window
     
+    def update_states(self):
+        self.states = [self.pos3d, self.cleaning_time, 0 if self.state == 'dirty' else 1]

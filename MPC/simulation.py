@@ -1,8 +1,8 @@
 from map import Map,random_map_generater
-import matplotlib.pyplot as plt
 from actions import *
 import random
 import time
+# Matplotlib import deferred to avoid numpy compatibility issues
 class simulation:
     def __init__(self, map: Map , sleep_time=0.1 , real_time = False):
 

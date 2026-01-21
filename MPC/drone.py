@@ -14,4 +14,4 @@ class Transport_drone:
         self.states = [self.pos3d, self.load, self.battery_level]
 
     def update_states(self):
-        self.states = [self.pos3d, self.load, self.battery_level]
+        self.states = [self.pos3d, self.load, self.battery_level] 

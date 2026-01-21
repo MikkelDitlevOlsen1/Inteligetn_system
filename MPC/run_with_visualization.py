@@ -6,9 +6,9 @@ The map visualization updates in real-time as the simulation progresses.
 from map import random_map_generater
 from simulation import simulation
 from live_visualizer import create_live_visualization
-import matplotlib.pyplot as plt
 import threading
 import time
+# Matplotlib import deferred to avoid numpy compatibility issues
 
 
 def run_simulation_with_live_viz(num_cleaners=3, num_windows=5, sim_duration=100, update_interval_ms=200):
